@@ -7,10 +7,9 @@
     <img src=".meta/logo.png" alt="Logo">
   </a>
 
-<h3 align="center">Rust CLI Starter</h3>
+<h3 align="center">Windows Global Mic Control</h3>
 
   <p align="center">
-    A starter template for a Rust CLI program
     <br />
     <a href="https://github.com/mylesberueda/windows-global-mic-control">
       <strong>Explore the docs »</strong>
