@@ -1,59 +1,71 @@
-/**
- * This is the main driver code for the starter.
- * Run with `cargo run` or `<project_name>` to see the auto-generated help text.
- */
-mod commands;
-use clap::Parser as _;
-use commands::*;
-
 type Result<T> = color_eyre::Result<T>;
 
-#[derive(clap::Parser)]
-#[clap(name = "Rust CLI Starter")]
-#[clap(author = "Myles <myles@themapletree.io>")]
-#[clap(version = "0.1.0")]
-#[clap(about = "A simple rust CLI starter with a scaffolding tool")]
-struct Cli {
-    #[command(subcommand)]
-    command: Option<Commands>,
-}
-
-const SCAFFOLD_ABOUT: &str = "
-Scaffolding command for quickly generating new files in your project
-
-This command will not show up in release builds and is only here for your 
-convenience during development.";
-
-#[derive(clap::Subcommand)]
-#[command(arg_required_else_help = true)]
-enum Commands {
-    /// Basic command that does things and stuff
-    Basic,
-    Example(example::Arguments),
-    #[cfg(debug_assertions)]
-    #[clap(arg_required_else_help = true)]
-    #[clap(about = "Scaffolding command for quickly generating new files in your project")]
-    #[clap(long_about = SCAFFOLD_ABOUT)]
-    Scaffold(scaffold::Arguments),
-}
-
 fn main() -> crate::Result<()> {
-    color_eyre::install()?;
-    let cli = Cli::parse();
+    #[cfg(not(target_os = "windows"))]
+    {
+        return Err(color_eyre::eyre::eyre!("Requires Windows"));
+    }
 
-    if let Some(cmds) = &cli.command {
-        match cmds {
-            Commands::Basic => basic_command(),
-            Commands::Example(args) => example::run(args),
-            #[cfg(debug_assertions)]
-            Commands::Scaffold(args) => scaffold::run(args),
-        }?;
-    };
+    #[cfg(target_os = "windows")]
+    {
+        use notify_rust::{Notification, Timeout};
+        use windows::Win32::{
+            Media::Audio::{
+                DEVICE_STATE_ACTIVE, Endpoints::IAudioEndpointVolume, IMMDevice,
+                IMMDeviceEnumerator, MMDeviceEnumerator, eCapture,
+            },
+            System::Com::{CLSCTX_ALL, COINIT_MULTITHREADED, CoCreateInstance, CoInitializeEx},
+        };
 
-    Ok(())
-}
+        unsafe {
+            let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
 
-fn basic_command() -> crate::Result<()> {
-    println!("Running the basic command from the top level");
+            // Create the device enumerator
+            let enumerator: IMMDeviceEnumerator =
+                CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL)?;
+
+            let collection = enumerator.EnumAudioEndpoints(eCapture, DEVICE_STATE_ACTIVE)?;
+
+            let count = collection.GetCount()?;
+            if count == 0 {
+                Notification::new()
+                    .summary("Microphone")
+                    .body("No active microphones found")
+                    .timeout(Timeout::Milliseconds(5))
+                    .show()?;
+                return Ok(());
+            }
+
+            let first_device: IMMDevice = collection.Item(0)?;
+
+            let first_endpoint_volume: IAudioEndpointVolume =
+                first_device.Activate(CLSCTX_ALL, None)?;
+
+            let is_muted = first_endpoint_volume.GetMute()?.as_bool();
+
+            // Apply the new mute state to all devices
+            for i in 0..count {
+                // Get the audio endpoint device
+                let device: IMMDevice = collection.Item(i)?;
+                let endpoint_volume: IAudioEndpointVolume = device.Activate(CLSCTX_ALL, None)?;
+
+                endpoint_volume.SetMute(!is_muted, std::ptr::null_mut())?;
+            }
+
+            let notification_body = if !is_muted {
+                "All microphones muted"
+            } else {
+                "All microphones unmuted"
+            };
+
+            Notification::new()
+                .summary("Microphone")
+                .body(notification_body)
+                .timeout(Timeout::Milliseconds(1))
+                .id(1)
+                .show()?;
+        }
+    }
+
     Ok(())
 }
