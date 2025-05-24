@@ -1,3 +1,12 @@
+use notify_rust::{Notification, Timeout};
+use windows::Win32::{
+    Media::Audio::{
+        DEVICE_STATE_ACTIVE, Endpoints::IAudioEndpointVolume, IMMDevice, IMMDeviceEnumerator,
+        MMDeviceEnumerator, eCapture,
+    },
+    System::Com::{CLSCTX_ALL, COINIT_MULTITHREADED, CoCreateInstance, CoInitializeEx},
+};
+
 type Result<T> = color_eyre::Result<T>;
 
 fn main() -> crate::Result<()> {
@@ -8,15 +17,6 @@ fn main() -> crate::Result<()> {
 
     #[cfg(target_os = "windows")]
     {
-        use notify_rust::{Notification, Timeout};
-        use windows::Win32::{
-            Media::Audio::{
-                DEVICE_STATE_ACTIVE, Endpoints::IAudioEndpointVolume, IMMDevice,
-                IMMDeviceEnumerator, MMDeviceEnumerator, eCapture,
-            },
-            System::Com::{CLSCTX_ALL, COINIT_MULTITHREADED, CoCreateInstance, CoInitializeEx},
-        };
-
         unsafe {
             let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
 
@@ -59,8 +59,7 @@ fn main() -> crate::Result<()> {
             };
 
             Notification::new()
-                .summary("Microphone")
-                .body(notification_body)
+                .summary(notification_body)
                 .timeout(Timeout::Milliseconds(1))
                 .id(1)
                 .show()?;
